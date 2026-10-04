@@ -1,0 +1,604 @@
+:root {
+  --bg-world: #f1f5f9;
+  --primary: #0284c7;
+  --endfield-bg: rgba(12, 16, 26, 0.94);
+  --endfield-card-bg: rgba(20, 26, 40, 0.85);
+  --endfield-card-hover: rgba(28, 36, 56, 0.95);
+  --endfield-amber: #f59e0b;
+  --endfield-amber-glow: rgba(245, 158, 11, 0.35);
+  --endfield-cyan: #06b6d4;
+  --endfield-cyan-glow: rgba(6, 182, 212, 0.3);
+  --endfield-border: rgba(255, 255, 255, 0.12);
+  --endfield-border-active: #f59e0b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg-world);
+  font-family: var(--font-family);
+}
+
+#game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+#game-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+#game-canvas:active {
+  cursor: grabbing;
+}
+
+body.pointer-locked #game-canvas {
+  cursor: none;
+}
+
+/* ==========================================================================
+   TOP-RIGHT CIRCULAR CHARACTER BUTTON (WITH WHITE TRIANGLE LOGO)
+   ========================================================================== */
+.btn-char-trigger {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-char-trigger:hover {
+  transform: translateY(-2px);
+}
+
+.char-icon-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.char-icon-circle::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.4s;
+  pointer-events: none;
+}
+
+.btn-char-trigger:hover .char-icon-circle {
+  border-color: var(--endfield-amber);
+  background: #1e293b;
+  box-shadow: 0 6px 20px var(--endfield-amber-glow);
+}
+
+.btn-char-trigger:hover .char-icon-circle::after {
+  opacity: 1;
+  transform: rotate(45deg);
+}
+
+.triangle-logo {
+  transition: transform 0.2s ease;
+}
+
+.btn-char-trigger:hover .triangle-logo {
+  transform: scale(1.15);
+}
+
+.char-btn-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+}
+
+.btn-char-trigger:hover .char-btn-text {
+  background: #0f172a;
+  color: var(--endfield-amber);
+  border-color: var(--endfield-amber);
+}
+
+/* ==========================================================================
+   ARKNIGHTS: ENDFIELD STYLE OPERATOR SELECTION MODAL
+   ========================================================================== */
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 6, 12, 0.75);
+  backdrop-filter: blur(14px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.25s ease, visibility 0.25s;
+}
+
+.modal-backdrop.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.endfield-modal {
+  width: 900px;
+  max-width: 94vw;
+  background: var(--endfield-bg);
+  border: 1px solid var(--endfield-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(6, 182, 212, 0.1);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-main);
+  /* Tactical chamfered corners */
+  clip-path: polygon(
+    0 16px, 16px 0,
+    calc(100% - 16px) 0, 100% 16px,
+    100% calc(100% - 16px), calc(100% - 16px) 100%,
+    16px 100%, 0 calc(100% - 16px)
+  );
+  animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from {
+    transform: scale(0.96) translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Modal Header Bar */
+.modal-header {
+  height: 48px;
+  background: rgba(16, 22, 34, 0.95);
+  border-bottom: 1px solid var(--endfield-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.hazard-stripe {
+  color: var(--endfield-amber);
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.protocol-tag {
+  color: var(--endfield-amber);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.version-tag {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.btn-endfield-close {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--endfield-border);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 6px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+  clip-path: polygon(0 4px, 4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px));
+}
+
+.btn-endfield-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* Title Area */
+.modal-title-area {
+  padding: 24px 28px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.modal-main-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.modal-sub-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--endfield-cyan);
+  letter-spacing: 1.5px;
+  margin-top: 4px;
+}
+
+/* Operator Cards List */
+.operator-roster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 24px 28px;
+}
+
+.operator-card {
+  background: var(--endfield-card-bg);
+  border: 1px solid var(--endfield-border);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s ease;
+  clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+
+.operator-card:hover {
+  background: var(--endfield-card-hover);
+  border-color: var(--endfield-cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), 0 0 16px var(--endfield-cyan-glow);
+}
+
+.operator-card.active {
+  border-color: var(--endfield-amber);
+  background: rgba(245, 158, 11, 0.07);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 20px var(--endfield-amber-glow);
+}
+
+/* Card Header */
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.operator-code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--endfield-amber);
+}
+
+.operator-status-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--endfield-border);
+  color: var(--text-muted);
+}
+
+.operator-card.active .operator-status-badge {
+  background: var(--endfield-amber);
+  color: #0b0f19;
+  border-color: var(--endfield-amber);
+}
+
+/* Operator Info */
+.operator-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.operator-avatar-box {
+  width: 68px;
+  height: 68px;
+  background: #090d16;
+  border: 1px solid var(--endfield-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-main);
+  position: relative;
+  flex-shrink: 0;
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+}
+
+.avatar-shiroko {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: white;
+}
+
+.avatar-doom {
+  background: linear-gradient(135deg, #15803d, #22c55e);
+  color: #fef08a;
+  border-color: #22c55e;
+}
+
+.operator-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.operator-name {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ffffff;
+}
+
+.operator-role {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--endfield-cyan);
+  font-weight: 600;
+}
+
+.operator-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Card Specs */
+.operator-specs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.spec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spec-k {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.spec-v {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+/* Deploy Button Inside Card */
+.btn-deploy {
+  width: 100%;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--endfield-border);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+  clip-path: polygon(0 4px, 4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px));
+}
+
+.operator-card:hover .btn-deploy {
+  background: var(--endfield-cyan);
+  color: #0b0f19;
+  border-color: var(--endfield-cyan);
+}
+
+.operator-card.active .btn-deploy {
+  background: var(--endfield-amber);
+  color: #0b0f19;
+  border-color: var(--endfield-amber);
+}
+
+/* Modal Footer */
+.modal-footer {
+  padding: 14px 28px;
+  background: rgba(16, 22, 34, 0.95);
+  border-top: 1px solid var(--endfield-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.footer-telemetry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-action-hint {
+  color: var(--endfield-amber);
+  font-weight: 600;
+}
+
+/* Loading Screen */
+#loading-screen {
+  position: absolute;
+  inset: 0;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 200;
+  pointer-events: auto;
+  transition: opacity 0.4s ease;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(2, 132, 199, 0.15);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.loading-bar {
+  width: 180px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.loading-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--primary);
+  transition: width 0.2s ease;
+}
+
+/* Doctor Doom Flight HUD (Levitation Telemetry) */
+.flight-hud {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 90;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.flight-hud.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-12px);
+  pointer-events: none;
+}
+
+.flight-hud-inner {
+  background: rgba(12, 16, 26, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.25), inset 0 0 12px rgba(16, 185, 129, 0.12);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  clip-path: polygon(0 6px, 6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px));
+}
+
+.flight-tag {
+  color: #10b981;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+
+.flight-status {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  padding: 2px 7px;
+  border-radius: 2px;
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 1px;
+  animation: pulse-green 1.5s infinite alternate;
+}
+
+@keyframes pulse-green {
+  from { opacity: 0.65; }
+  to { opacity: 1; text-shadow: 0 0 8px rgba(16, 185, 129, 0.85); }
+}
+
+.flight-controls-hint {
+  color: #94a3b8;
+  font-size: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+.flight-controls-hint span {
+  color: #f1f5f9;
+  font-weight: 600;
+}
+

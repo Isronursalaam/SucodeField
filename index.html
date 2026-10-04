@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Archive: Shiroko 3D Game Prototype</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Three.js ES Module Import Map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="game-container">
+    <!-- 3D WebGL Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top-Right Circular Character Button -->
+    <button id="btn-char-menu" class="btn-char-trigger" title="Switch Character (C)">
+      <div class="char-icon-circle">
+        <!-- Pure White Triangle Logo (SVG Vector - Not Emoji) -->
+        <svg class="triangle-logo" viewBox="0 0 24 24" width="18" height="18" fill="none">
+          <polygon points="12,5 21,19 3,19" fill="#ffffff" />
+        </svg>
+      </div>
+      <span class="char-btn-text">Character</span>
+    </button>
+
+    <!-- Tactical Flight Indicator (Doctor Doom Levitation) -->
+    <div id="flight-hud" class="flight-hud hidden">
+      <div class="flight-hud-inner">
+        <span class="flight-tag">LEVITATION PROTOCOL</span>
+        <span class="flight-status">ACTIVE</span>
+        <div class="flight-controls-hint">
+          <span>[SPACE] ASCEND</span> • 
+          <span>[X] DESCEND</span> • 
+          <span>[SHIFT] BOOST</span> • 
+          <span>[DOUBLE-SPACE] DEACTIVATE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arknights: Endfield Style Character Selection Modal -->
+    <div id="char-modal" class="modal-backdrop hidden">
+      <div class="endfield-modal">
+        <!-- Tactical Header Bar -->
+        <div class="modal-header">
+          <div class="header-left">
+            <span class="hazard-stripe">///</span>
+            <span class="protocol-tag">PROTOCOL: OPERATOR_DEPLOYMENT</span>
+            <span class="version-tag">END-FIELD // SYS.04</span>
+          </div>
+          <button id="btn-close-modal" class="btn-endfield-close" title="Close (ESC)">
+            <span>CLOSE</span>
+            <span class="close-x">✕</span>
+          </button>
+        </div>
+
+        <!-- Modal Title Area -->
+        <div class="modal-title-area">
+          <div class="modal-main-title">OPERATOR ROSTER</div>
+          <div class="modal-sub-title">SELECT ACTIVE OPERATOR FOR FIELD RECONNAISSANCE</div>
+        </div>
+
+        <!-- Operator Cards Grid -->
+        <div class="operator-roster" id="operator-list">
+          <!-- Populated dynamically via game.js -->
+        </div>
+
+        <!-- Modal Footer Telemetry -->
+        <div class="modal-footer">
+          <div class="footer-telemetry">
+            <span>SYS_STATUS: OPTIMAL</span>
+            <span>•</span>
+            <span>SYNCHRONIZATION: 100%</span>
+            <span>•</span>
+            <span>PRESS [C] TO TOGGLE ROSTER</span>
+          </div>
+          <div class="footer-action-hint">
+            SELECT CARD TO INSTANTLY DEPLOY
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading Screen (Fades out automatically upon load) -->
+    <div id="loading-screen">
+      <div class="loading-spinner"></div>
+      <div class="loading-title" id="loading-title">Menyiapkan Dunia 3D & Karakter...</div>
+      <div class="loading-bar">
+        <div class="loading-bar-fill" id="loading-progress"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>

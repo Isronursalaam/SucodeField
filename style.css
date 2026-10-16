@@ -602,3 +602,160 @@ body.pointer-locked #game-canvas {
   font-weight: 600;
 }
 
+/* ==========================================================================
+   INTRO ELEVATOR & OPERATOR SELECTION HUD
+   ========================================================================== */
+.btn-char-trigger.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-10px);
+}
+
+.intro-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+
+.intro-hud.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+
+
+/* Sleek Bottom Action Bar (Non-intrusive, positioned cleanly at bottom center) */
+.intro-action-bar {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 60;
+  pointer-events: auto;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.intro-action-bar.hidden {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+  pointer-events: none;
+}
+
+.btn-intro-ghost {
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #cbd5e1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 10px 18px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.btn-intro-ghost:hover {
+  background: rgba(15, 23, 42, 0.95);
+  color: #ffffff;
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+}
+
+.intro-selected-badge {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(12, 16, 26, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(6, 182, 212, 0.45);
+  padding: 10px 22px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 12px rgba(6, 182, 212, 0.2);
+}
+
+.badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #06b6d4;
+  box-shadow: 0 0 8px #06b6d4;
+  animation: pulse-dot 1s infinite alternate;
+}
+
+.btn-intro-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  padding: 10px 24px;
+  border-radius: 9999px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(2, 132, 199, 0.45);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-intro-pill:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
+  box-shadow: 0 6px 28px rgba(2, 132, 199, 0.7);
+}
+
+.pill-arrow {
+  transition: transform 0.2s ease;
+}
+
+.btn-intro-pill:hover .pill-arrow {
+  transform: translateX(4px);
+}
+
+/* White / Flash Transition Overlay */
+.intro-flash {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  z-index: 300;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.intro-flash.active {
+  opacity: 0.95;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .intro-action-bar {
+    bottom: 18px;
+    gap: 8px;
+    width: calc(100% - 32px);
+    justify-content: center;
+  }
+  .intro-selected-badge {
+    display: none;
+  }
+  .elevator-telemetry {
+    display: none;
+  }
+}
+
+

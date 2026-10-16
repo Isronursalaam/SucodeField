@@ -291,6 +291,113 @@ function playElevatorDing() {
   } catch (e) {}
 }
 
+function playDockingSound() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const t = audioCtx.currentTime;
+  try {
+    // 1. Heavy low mechanical arrestor thud
+    const osc = audioCtx.createOscillator();
+    const oscGain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(110, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 0.35);
+    oscGain.gain.setValueAtTime(0.35, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    osc.connect(oscGain);
+    oscGain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.35);
+
+    // 2. Metallic latch / clank
+    const bufSize = Math.floor(audioCtx.sampleRate * 0.12);
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.02));
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1200, t);
+    filter.Q.setValueAtTime(3, t);
+    const nGain = audioCtx.createGain();
+    nGain.gain.setValueAtTime(0.25, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    noise.connect(filter);
+    filter.connect(nGain);
+    nGain.connect(audioCtx.destination);
+    noise.start(t);
+  } catch (e) {}
+}
+
+function playDoorOpenSound() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const t = audioCtx.currentTime;
+  try {
+    // 1. Pressurized pneumatic release hiss (Psssshh)
+    const bufSize = Math.floor(audioCtx.sampleRate * 0.85);
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.28));
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(3200, t);
+    filter.frequency.exponentialRampToValueAtTime(650, t + 0.7);
+    const nGain = audioCtx.createGain();
+    nGain.gain.setValueAtTime(0.28, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.85);
+    noise.connect(filter);
+    filter.connect(nGain);
+    nGain.connect(audioCtx.destination);
+    noise.start(t);
+
+    // 2. Heavy mechanical servo / rail slide hum
+    const osc = audioCtx.createOscillator();
+    const oscGain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(95, t);
+    osc.frequency.linearRampToValueAtTime(140, t + 0.4);
+    osc.frequency.linearRampToValueAtTime(60, t + 0.9);
+    const oFilter = audioCtx.createBiquadFilter();
+    oFilter.type = 'lowpass';
+    oFilter.frequency.setValueAtTime(380, t);
+    oscGain.gain.setValueAtTime(0.08, t);
+    oscGain.gain.linearRampToValueAtTime(0.12, t + 0.3);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+    osc.connect(oFilter);
+    oFilter.connect(oscGain);
+    oscGain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.9);
+  } catch (e) {}
+}
+
+function playDoorCloseSound() {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const t = audioCtx.currentTime;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(120, t);
+    osc.frequency.exponentialRampToValueAtTime(50, t + 0.25);
+    gain.gain.setValueAtTime(0.2, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.25);
+  } catch (e) {}
+}
+
 function playSingleShot(delay) {
   if (!audioCtx) return;
   const t = audioCtx.currentTime + delay;
@@ -547,12 +654,12 @@ function buildDevWorld() {
     isFloor: true
   });
 
-  // Spawn Ring Marker
+  // Spawn Ring Marker (Positioned at arena landing point Z = 3.2 to eliminate Z-fighting under lift)
   const ringGeo = new THREE.RingGeometry(1.4, 1.5, 32);
   const ringMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide });
   const ring = new THREE.Mesh(ringGeo, ringMat);
   ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.01;
+  ring.position.set(0, 0.01, 3.2);
   devWorldGroup.add(ring);
 
   // 2. Helper to add prototype box platforms
@@ -902,8 +1009,8 @@ function switchAnimation(name, duration = 0.2) {
     next.setEffectiveWeight(1);
     next.play();
 
-    // Smoothly cross-fade from previous action
-    prev.crossFadeTo(next, duration, true);
+    // Smoothly cross-fade from previous action (warp = false prevents bind pose / T-pose glitches)
+    prev.crossFadeTo(next, duration, false);
   } else {
     next.reset();
     next.enabled = true;
@@ -942,11 +1049,21 @@ window.addEventListener('keydown', (e) => {
 
   // Intro Cutscene Shortcuts
   if (state.introActive) {
+    if (state.introState === 'deploying') {
+      if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') {
+        skipIntroToGameplay();
+      }
+      return;
+    }
     if (e.key === 'Escape') {
       returnToIntroOverview();
     } else if (e.key === 'Enter') {
       if (state.introSelectedCharId) {
-        deployOperator();
+        // Konfirmasi (YA) dan mulai proses lift berhenti & keluar
+        deployOperator(state.introSelectedCharId);
+      } else {
+        // Default pilih operator kiri (Shiroko) untuk konfirmasi
+        selectIntroOperator('shiroko');
       }
     } else if (e.key === '1') {
       selectIntroOperator('shiroko');
@@ -1121,15 +1238,15 @@ function resetCharacterPosition() {
   if (state.isFlying) {
     exitFlight();
   }
-  state.pos.set(0, 0.1, 0);
+  state.pos.set(0, 0.1, 3.2);
   state.vel.set(0, 0, 0);
-  state.targetRotation = Math.PI;
+  state.targetRotation = 0;
   state.jumpCooldown = 0;
   state.isAttacking = false;
   state.attackTimer = 0;
   if (state.character) {
     state.character.position.copy(state.pos);
-    state.character.rotation.y = Math.PI;
+    state.character.rotation.y = 0;
   }
 }
 
@@ -1795,7 +1912,10 @@ function createElevatorGroup() {
   const platformDeckMat = new THREE.MeshStandardMaterial({
     color: 0x141b24,
     roughness: 0.45,
-    metalness: 0.75
+    metalness: 0.75,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.0,
+    polygonOffsetUnits: -1.0
   });
 
   const yellowCurbMat = new THREE.MeshStandardMaterial({
@@ -1822,56 +1942,81 @@ function createElevatorGroup() {
     metalness: 0.5
   });
 
-  // 1. Platform Deck (3.6m wide x 2.6m deep)
+  // 1. Platform Deck (3.6m wide x 2.6m deep) - top surface at Y = +0.02 eliminates coplanar Z-fighting with arena ground (Y = 0)
   const floorGeo = new THREE.BoxGeometry(3.6, 0.20, 2.6);
   const floorMesh = new THREE.Mesh(floorGeo, platformDeckMat);
-  floorMesh.position.y = -0.10;
+  floorMesh.position.y = -0.08;
   floorMesh.receiveShadow = true;
   liftGroup.add(floorMesh);
 
   // Recessed center panel
   const centerPanel = new THREE.Mesh(
     new THREE.BoxGeometry(3.2, 0.02, 2.2),
-    new THREE.MeshStandardMaterial({ color: 0x0a0f16, roughness: 0.6, metalness: 0.6 })
+    new THREE.MeshStandardMaterial({
+      color: 0x0a0f16,
+      roughness: 0.6,
+      metalness: 0.6,
+      polygonOffset: true,
+      polygonOffsetFactor: -2.0,
+      polygonOffsetUnits: -3.0
+    })
   );
-  centerPanel.position.set(0, 0.01, 0);
+  centerPanel.position.set(0, 0.025, 0);
   centerPanel.receiveShadow = true;
   liftGroup.add(centerPanel);
 
+  // Industrial Beveled Threshold Plate at elevator doorway (Z = 1.30)
+  // Seamlessly ramps down from elevator deck Y = +0.02 to arena ground Y = 0.0
+  const thresholdMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    roughness: 0.5,
+    metalness: 0.8,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.0,
+    polygonOffsetUnits: -1.0
+  });
+  const thresholdRamp = new THREE.Mesh(new THREE.BoxGeometry(2.56, 0.02, 0.16), thresholdMat);
+  thresholdRamp.position.set(0, 0.01, 1.32);
+  thresholdRamp.rotation.x = 0.125;
+  thresholdRamp.receiveShadow = true;
+  liftGroup.add(thresholdRamp);
+
   // 2. Iconic Solid Safety Yellow Perimeter Frame / Curb (Endfield Signature)
-  // Front Yellow Bumper Curb
-  const frontCurb = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 0.14), yellowCurbMat);
-  frontCurb.position.set(0, 0.06, 1.25);
-  liftGroup.add(frontCurb);
+  // Front Yellow Bumper Curbs flanking doorway (Left & Right from X: ±1.28 to ±1.80)
+  [-1.54, 1.54].forEach(bx => {
+    const frontCornerCurb = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.12, 0.14), yellowCurbMat);
+    frontCornerCurb.position.set(bx, 0.08, 1.25);
+    liftGroup.add(frontCornerCurb);
+  });
 
   // Front Corner White/Silver Inspection Bolt Plates (Seen in Endfield reference)
   [-1.25, 1.25].forEach(bx => {
     const boltPlate = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.08), boltCapMat);
-    boltPlate.position.set(bx, 0.13, 1.25);
+    boltPlate.position.set(bx, 0.15, 1.25);
     liftGroup.add(boltPlate);
   });
 
   // Left & Right Yellow Curbs
   const leftCurb = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 2.6), yellowCurbMat);
-  leftCurb.position.set(-1.75, 0.06, 0);
+  leftCurb.position.set(-1.75, 0.08, 0);
   liftGroup.add(leftCurb);
 
   const rightCurb = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 2.6), yellowCurbMat);
-  rightCurb.position.set(1.75, 0.06, 0);
+  rightCurb.position.set(1.75, 0.08, 0);
   liftGroup.add(rightCurb);
 
   // Back Yellow Curb
   const backCurb = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 0.14), yellowCurbMat);
-  backCurb.position.set(0, 0.06, -1.25);
+  backCurb.position.set(0, 0.08, -1.25);
   liftGroup.add(backCurb);
 
   // 3. Four Sleek Corner Columns
   const colGeo = new THREE.BoxGeometry(0.09, 3.2, 0.09);
   const cornerPositions = [
-    [-1.75, 1.6, 1.25],
-    [1.75, 1.6, 1.25],
-    [-1.75, 1.6, -1.25],
-    [1.75, 1.6, -1.25]
+    [-1.75, 1.62, 1.25],
+    [1.75, 1.62, 1.25],
+    [-1.75, 1.62, -1.25],
+    [1.75, 1.62, -1.25]
   ];
   cornerPositions.forEach(([x, y, z]) => {
     const col = new THREE.Mesh(colGeo, darkRigMat);
@@ -1894,18 +2039,18 @@ function createElevatorGroup() {
 
     // Top side rail
     const topRail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 2.6), darkRigMat);
-    topRail.position.set(sideX, 3.1, 0);
+    topRail.position.set(sideX, 3.14, 0);
     liftGroup.add(topRail);
 
     // Mid side rail
     const midRail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 2.6), darkRigMat);
-    midRail.position.set(sideX, 1.6, 0);
+    midRail.position.set(sideX, 1.62, 0);
     liftGroup.add(midRail);
 
     // Transparent safety shield panel
     const glassPanel = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.9), glassMat);
     glassPanel.rotation.y = side === 1 ? -Math.PI / 2 : Math.PI / 2;
-    glassPanel.position.set(sideX - side * 0.01, 1.6, 0);
+    glassPanel.position.set(sideX - side * 0.01, 1.62, 0);
     liftGroup.add(glassPanel);
 
     // Sleek diagonal tension cables (criss-cross rigging as in Endfield screenshot)
@@ -1913,17 +2058,18 @@ function createElevatorGroup() {
     const cableLen = Math.hypot(2.5, 2.9);
 
     const cable1 = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, cableLen, 8), cableWireMat);
-    cable1.position.set(sideX - side * 0.02, 1.6, 0);
+    cable1.position.set(sideX - side * 0.02, 1.62, 0);
     cable1.rotation.x = cableAngle;
     liftGroup.add(cable1);
 
     const cable2 = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, cableLen, 8), cableWireMat);
-    cable2.position.set(sideX - side * 0.02, 1.6, 0);
+    cable2.position.set(sideX - side * 0.02, 1.62, 0);
     cable2.rotation.x = -cableAngle;
     liftGroup.add(cable2);
   });
 
   // 5. Open Shaft Background Structure (NO solid wall! Deep open elevator shaft)
+  const shaftStructureGroup = new THREE.Group();
   // Central Vertical Guide Rails in the background
   [-0.45, 0.45].forEach(rx => {
     const shaftRail = new THREE.Mesh(
@@ -1931,7 +2077,7 @@ function createElevatorGroup() {
       new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.3 })
     );
     shaftRail.position.set(rx, 6.0, -1.8);
-    liftGroup.add(shaftRail);
+    shaftStructureGroup.add(shaftRail);
   });
 
   // Vertical Hoist Cables extending up the shaft
@@ -1941,8 +2087,9 @@ function createElevatorGroup() {
       cableWireMat
     );
     hoistCable.position.set(cx, 8.0, -1.85);
-    liftGroup.add(hoistCable);
+    shaftStructureGroup.add(hoistCable);
   });
+  liftGroup.add(shaftStructureGroup);
 
   // 6. Overhead Lighting (Studio High-CRI Cool-White Top Downlight)
   const cabinLight = new THREE.PointLight(0xf8fafc, 3.4, 14, 1.0);
@@ -1956,8 +2103,122 @@ function createElevatorGroup() {
   fillLight.position.set(0, 1.5, 2.2);
   liftGroup.add(fillLight);
 
+  // 7. Industrial Sliding Blast Doors (Bi-Parting at Front Threshold Z = 1.28)
+  const doorMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    roughness: 0.35,
+    metalness: 0.85
+  });
+
+  const doorInnerMat = new THREE.MeshStandardMaterial({
+    color: 0x0f172a,
+    roughness: 0.55,
+    metalness: 0.70
+  });
+
+  const slitGlassMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.85,
+    transparent: true,
+    opacity: 0.8,
+    roughness: 0.15
+  });
+
+  const doorGasketMat = new THREE.MeshStandardMaterial({
+    color: 0x090d16,
+    roughness: 0.9,
+    metalness: 0.1
+  });
+
+  const hazardTex = createHazardStripeTexture();
+  const doorHazardMat = new THREE.MeshStandardMaterial({
+    map: hazardTex,
+    roughness: 0.45
+  });
+
+  // Top header door track & portal frame
+  const doorHeader = new THREE.Mesh(
+    new THREE.BoxGeometry(3.6, 0.24, 0.16),
+    darkRigMat
+  );
+  doorHeader.position.set(0, 3.14, 1.28);
+  liftGroup.add(doorHeader);
+
+  // Status LED light above doors (Red while closed/docking, Green when docked/opening)
+  const statusLedMat = new THREE.MeshStandardMaterial({
+    color: 0x10b981,
+    emissive: 0x10b981,
+    emissiveIntensity: 1.5,
+    roughness: 0.2
+  });
+  const statusLed = new THREE.Mesh(
+    new THREE.BoxGeometry(0.38, 0.06, 0.04),
+    statusLedMat
+  );
+  statusLed.position.set(0, 3.08, 1.37);
+  liftGroup.add(statusLed);
+
+  // Helper to construct industrial blast door leaf
+  function createDoorLeaf(isLeft) {
+    const leaf = new THREE.Group();
+    const doorW = 1.28;
+    const doorH = 2.94;
+    const doorD = 0.06;
+
+    // Main steel armor plate
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(doorW, doorH, doorD), doorMat);
+    slab.position.y = doorH / 2;
+    slab.castShadow = true;
+    leaf.add(slab);
+
+    // Inner recessed relief plate
+    const innerRelief = new THREE.Mesh(new THREE.BoxGeometry(doorW - 0.16, doorH - 0.24, 0.02), doorInnerMat);
+    innerRelief.position.set(isLeft ? 0.04 : -0.04, doorH / 2, 0.035);
+    leaf.add(innerRelief);
+
+    // Hazard caution stripe band along the bottom
+    const hazardBand = new THREE.Mesh(new THREE.BoxGeometry(doorW, 0.18, 0.02), doorHazardMat);
+    hazardBand.position.set(0, 0.15, 0.035);
+    leaf.add(hazardBand);
+
+    // Vertical vision slit window
+    const visionSlit = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.35, 0.08), slitGlassMat);
+    visionSlit.position.set(isLeft ? 0.28 : -0.28, 1.65, 0);
+    leaf.add(visionSlit);
+
+    // Heavy rubber edge gasket on inner meeting seam
+    const gasket = new THREE.Mesh(new THREE.BoxGeometry(0.02, doorH, doorD + 0.01), doorGasketMat);
+    gasket.position.set(isLeft ? (doorW / 2) : (-doorW / 2), doorH / 2, 0);
+    leaf.add(gasket);
+
+    // Heavy horizontal reinforcing ribs
+    [0.75, 1.50, 2.25].forEach(ry => {
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(doorW - 0.08, 0.04, 0.02), darkRigMat);
+      rib.position.set(0, ry, 0.04);
+      leaf.add(rib);
+    });
+
+    return leaf;
+  }
+
+  // Left Door Leaf (Spans X: -1.28 to 0 when closed at center X = -0.64; parked at X = -1.95 when open)
+  const doorLeft = createDoorLeaf(true);
+  doorLeft.position.set(-1.95, 0.02, 1.28);
+  liftGroup.add(doorLeft);
+
+  // Right Door Leaf (Spans X: 0 to 1.28 when closed at center X = +0.64; parked at X = +1.95 when open)
+  const doorRight = createDoorLeaf(false);
+  doorRight.position.set(1.95, 0.02, 1.28);
+  liftGroup.add(doorRight);
+
   liftGroup.userData = {
     cabinLight,
+    doorLeft,
+    doorRight,
+    statusLed,
+    statusLedMat,
+    shaftStructureGroup,
     renderFloorDisplay: () => {}
   };
 
@@ -2145,7 +2406,11 @@ function handleIntroMouseMove(e) {
 }
 
 function handleIntroClick(e) {
-  if (!state.introActive || state.introState === 'deploying') return;
+  if (!state.introActive) return;
+  if (state.introState === 'deploying') {
+    skipIntroToGameplay();
+    return;
+  }
 
   state.mouseNorm.x = (e.clientX / window.innerWidth) * 2 - 1;
   state.mouseNorm.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -2166,10 +2431,22 @@ function handleIntroClick(e) {
     }
 
     if (topHit === loadedCharacters.shiroko?.rootGroup) {
-      selectIntroOperator('shiroko');
+      if (state.introState === 'shiroko') {
+        // Klik kedua pada Shiroko -> Konfirmasi (YA) & deploy!
+        deployOperator('shiroko');
+      } else {
+        // Klik pertama -> Zoom in ke Shiroko & tampilkan bilah konfirmasi
+        selectIntroOperator('shiroko');
+      }
       return;
     } else if (topHit === loadedCharacters.drdoom?.rootGroup) {
-      selectIntroOperator('drdoom');
+      if (state.introState === 'drdoom') {
+        // Klik kedua pada Doctor Doom -> Konfirmasi (YA) & deploy!
+        deployOperator('drdoom');
+      } else {
+        // Klik pertama -> Zoom in ke Doctor Doom & tampilkan bilah konfirmasi
+        selectIntroOperator('drdoom');
+      }
       return;
     }
   }
@@ -2209,95 +2486,152 @@ function returnToIntroOverview() {
   highlightPedestal(null);
 }
 
-// 10. Deploy Operator (Elevator Arrival Sequence & Gameplay Start)
-function deployOperator() {
-  const charId = state.introSelectedCharId || 'shiroko';
-  const char = CHARACTERS[charId];
+// 10. Deploy Operator (Elevator Deceleration, Docking, Doors Opening & Walkout Cinematic)
+function deployOperator(charId) {
+  if (state.introState === 'deploying') return;
 
+  const targetCharId = charId || state.introSelectedCharId || 'shiroko';
+  state.introSelectedCharId = targetCharId;
+  state.currentCharId = targetCharId;
   state.introState = 'deploying';
-  playElevatorDing();
+  state.deployStartTime = performance.now() / 1000;
+  state.dockingSoundPlayed = false;
+  state.doorSoundPlayed = false;
+  state.walkAnimStarted = false;
+  state.idleCrossfaded = false;
+  state.stepTimer = 0;
 
-  const flash = document.getElementById('intro-flash');
-  const introHud = document.getElementById('intro-hud');
+  playDeploySound();
+
   const actionBar = document.getElementById('intro-action-bar');
-
-  if (flash) flash.classList.add('active');
   if (actionBar) actionBar.classList.add('hidden');
+  canvas.style.cursor = 'default';
+}
 
-  setTimeout(() => {
-    // Hide Intro HUD
-    if (introHud) introHud.classList.add('hidden');
+function finalizeGameplayTransition() {
+  if (!state.introActive) return;
 
-    state.currentCharId = charId;
-    const selectedCharData = loadedCharacters[charId];
-    const unselectedCharId = charId === 'shiroko' ? 'drdoom' : 'shiroko';
-    const unselectedCharData = loadedCharacters[unselectedCharId];
+  const charId = state.currentCharId || 'shiroko';
+  const char = CHARACTERS[charId];
+  const selectedCharData = loadedCharacters[charId];
+  const unselectedCharId = charId === 'shiroko' ? 'drdoom' : 'shiroko';
+  const unselectedCharData = loadedCharacters[unselectedCharId];
 
-    // Remove unselected character from scene
-    if (unselectedCharData && unselectedCharData.rootGroup) {
-      scene.remove(unselectedCharData.rootGroup);
-    }
+  // Remove unselected character if still present in scene
+  if (unselectedCharData && unselectedCharData.rootGroup && unselectedCharData.rootGroup.parent) {
+    scene.remove(unselectedCharData.rootGroup);
+  }
 
-    // Set selected character as active player
+  // Remove ascent speed particles & floating text
+  if (ascentEffectsGroup && ascentEffectsGroup.parent) {
+    scene.remove(ascentEffectsGroup);
+  }
+  if (whoAreYouMesh && whoAreYouMesh.parent) {
+    scene.remove(whoAreYouMesh);
+  }
+
+  // Make sure outdoor world is visible
+  if (devWorldGroup) {
+    devWorldGroup.visible = true;
+  }
+
+  // Remove elevator cabin, shaft rails, cables, and doors completely upon entering gameplay
+  if (elevatorGroup && elevatorGroup.parent) {
+    scene.remove(elevatorGroup);
+  }
+
+  // Set active character & position on arena floor
+  state.pos.set(0, 0, 3.2);
+  state.vel.set(0, 0, 0);
+  state.targetRotation = 0; // facing forward (+Z)
+
+  if (selectedCharData && selectedCharData.rootGroup) {
     state.character = selectedCharData.rootGroup;
-    state.pos.set(0, 0, 0);
-    state.targetRotation = Math.PI; // Face forward into arena
-    state.character.position.set(0, 0, 0);
-    state.character.rotation.y = state.targetRotation;
+    state.character.position.copy(state.pos);
+    state.character.rotation.y = 0;
+    // Restore materials opacity
+    state.character.traverse((child) => {
+      if (child.isMesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach(m => { m.opacity = 1.0; });
+      }
+    });
 
     state.mixer = selectedCharData.mixer;
     state.actions = selectedCharData.actions;
-    state.currentAction = state.actions['idle'];
+    state.currentAction = selectedCharData.actions['idle'];
     state.currentAnimName = 'idle';
-
-    if (char.canFly) {
-      state.thrusterGroup = selectedCharData.rootGroup.userData.thrusterGroup;
-    } else {
-      state.thrusterGroup = null;
+    if (state.currentAction) {
+      state.currentAction.enabled = true;
+      state.currentAction.setEffectiveWeight(1.0);
+      state.currentAction.play();
     }
-    state.isFlying = false;
-    updateFlightHud();
+  }
 
-    // Remove elevator cabin, ascent effects & "WHO ARE YOU" text
-    if (elevatorGroup) {
-      scene.remove(elevatorGroup);
-    }
-    if (ascentEffectsGroup) {
-      scene.remove(ascentEffectsGroup);
-    }
-    if (whoAreYouMesh) {
-      scene.remove(whoAreYouMesh);
-    }
+  if (char.canFly) {
+    state.thrusterGroup = selectedCharData.rootGroup.userData.thrusterGroup;
+  } else {
+    state.thrusterGroup = null;
+  }
+  state.isFlying = false;
+  updateFlightHud();
 
-    // Reveal outdoor dev arena world upon docking
-    if (devWorldGroup) {
-      devWorldGroup.visible = true;
-    }
+  // Restore outdoor daylight environment
+  scene.background.set(state.isSunset ? bgSunset : bgDay);
+  scene.fog.color.set(state.isSunset ? bgSunset : bgDay);
+  scene.fog.near = 10;
+  scene.fog.far = 180;
+  sunLight.intensity = 1.8;
 
-    // Restore outdoor daylight / fog
-    scene.background.set(state.isSunset ? bgSunset : bgDay);
-    scene.fog.color.set(state.isSunset ? bgSunset : bgDay);
+  // Initialize Camera to TPS Orbit position behind player looking forward
+  state.yaw = Math.PI;
+  state.pitch = 0.28;
+  state.distance = char.cameraDist || 3.4;
 
-    // Initialize Camera to TPS Orbit position
-    state.yaw = 0;
-    state.pitch = 0.32;
-    state.distance = char.cameraDist || 3.4;
-    updateCamera(0.016);
+  // Seamless Camera Handoff: Pre-seed cameraTarget and desiredCameraPos exactly
+  // to eliminate any snap, jerk, or lerping lag from origin (0, 0, 0)
+  const focusHeight = char.cameraHeight || 0.85;
+  const targetPos = state.pos.clone().add(new THREE.Vector3(0, focusHeight, 0));
+  cameraTarget.copy(targetPos);
 
-    // Fade out arrival flash
-    if (flash) flash.classList.remove('active');
+  const cosPitch = Math.cos(state.pitch);
+  const sinPitch = Math.sin(state.pitch);
+  const sinYaw = Math.sin(state.yaw);
+  const cosYaw = Math.cos(state.yaw);
 
-    // Show Character switch button
-    if (btnCharMenu) btnCharMenu.classList.remove('hidden');
+  const offsetX = state.distance * sinYaw * cosPitch;
+  const offsetY = state.distance * sinPitch;
+  const offsetZ = state.distance * cosYaw * cosPitch;
 
-    // Unlock gameplay!
-    state.introActive = false;
-  }, 450);
+  desiredCameraPos.set(
+    targetPos.x + offsetX,
+    targetPos.y + offsetY,
+    targetPos.z + offsetZ
+  );
+
+  camera.position.copy(desiredCameraPos);
+  camera.lookAt(cameraTarget);
+
+  // Hide Intro HUD
+  const introHud = document.getElementById('intro-hud');
+  if (introHud) introHud.classList.add('hidden');
+
+  // Show top-right Character menu button
+  if (btnCharMenu) btnCharMenu.classList.remove('hidden');
+
+  // Unlock gameplay!
+  state.introActive = false;
+  state.introState = 'gameplay';
+}
+
+function skipIntroToGameplay() {
+  if (!state.introActive) return;
+  finalizeGameplayTransition();
 }
 
 // 11. Update Intro Cutscene Frame
 function updateIntro(dt, elapsed) {
-  // Update both character idle animations
+  // Update animation mixers
   if (loadedCharacters.shiroko?.mixer) {
     loadedCharacters.shiroko.mixer.update(dt);
   }
@@ -2305,6 +2639,253 @@ function updateIntro(dt, elapsed) {
     loadedCharacters.drdoom.mixer.update(dt);
   }
 
+  // --------------------------------------------------------------------------
+  // CINEMATIC DEPLOYMENT SEQUENCE (After selecting character)
+  // --------------------------------------------------------------------------
+  if (state.introState === 'deploying') {
+    const elapsedDeploy = (performance.now() / 1000) - state.deployStartTime;
+    const selectedCharId = state.currentCharId || 'shiroko';
+    const unselectedCharId = selectedCharId === 'shiroko' ? 'drdoom' : 'shiroko';
+    const selectedCharData = loadedCharacters[selectedCharId];
+    const unselectedCharData = loadedCharacters[unselectedCharId];
+    const char = CHARACTERS[selectedCharId];
+
+    // 1. Smoothly fade out "WHO ARE YOU?" typography and unselected character
+    if (elapsedDeploy < 0.8) {
+      const fade = Math.max(0, 1.0 - elapsedDeploy / 0.55);
+      if (whoAreYouMesh && whoAreYouMesh.material) {
+        whoAreYouMesh.material.opacity = fade;
+      }
+      if (unselectedCharData && unselectedCharData.rootGroup) {
+        unselectedCharData.rootGroup.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(m => {
+              m.transparent = true;
+              m.opacity = fade;
+            });
+          }
+        });
+      }
+    } else {
+      if (whoAreYouMesh && whoAreYouMesh.parent) scene.remove(whoAreYouMesh);
+      if (unselectedCharData && unselectedCharData.rootGroup && unselectedCharData.rootGroup.parent) {
+        scene.remove(unselectedCharData.rootGroup);
+      }
+    }
+
+    // PHASE 1: GRADUAL DOCKING & DECELERATION (0.0s - 2.0s)
+    if (elapsedDeploy < 2.0) {
+      // Lift decelerates gradually (smooth exponential ease-out braking curve)
+      const decelProgress = Math.min(1.0, elapsedDeploy / 2.0);
+      const decel = Math.pow(1.0 - decelProgress, 2.2);
+
+      if (ascentEffectsGroup && ascentEffectsGroup.userData) {
+        const { positions, speeds, girders, particles } = ascentEffectsGroup.userData;
+        for (let i = 0; i < speeds.length; i++) {
+          positions[i * 3 + 1] -= speeds[i] * dt * decel;
+          if (positions[i * 3 + 1] < -4) positions[i * 3 + 1] = 16;
+        }
+        particles.geometry.attributes.position.needsUpdate = true;
+        for (const g of girders) {
+          g.position.y -= 18 * dt * decel;
+          if (g.position.y < -4) g.position.y += girders.length * 4;
+        }
+      }
+
+      // Platform vibration settles smoothly with subtle braking inertia dip (clamped above floor to eliminate Z-fighting)
+      if (elevatorGroup) {
+        const brakeDip = Math.sin(Math.min(1.0, Math.max(0, (elapsedDeploy - 1.2) / 0.8)) * Math.PI) * 0.006;
+        const vib = Math.max(0, Math.sin(elapsed * 24) * 0.002 * decel);
+        elevatorGroup.position.y = vib - brakeDip * decel;
+      }
+
+      if (selectedCharData && selectedCharData.rootGroup) {
+        selectedCharData.rootGroup.position.y = (elevatorGroup ? elevatorGroup.position.y : 0) + 0.02;
+      }
+
+      // Sliding blast doors close firmly into airlock seal
+      if (elevatorGroup && elevatorGroup.userData) {
+        const { doorLeft, doorRight, statusLedMat } = elevatorGroup.userData;
+        const closeT = Math.min(1.0, elapsedDeploy / 0.80);
+        const easeClose = 1 - Math.pow(1 - closeT, 3);
+        if (doorLeft) doorLeft.position.x = -1.95 + (-0.64 - (-1.95)) * easeClose;
+        if (doorRight) doorRight.position.x = 1.95 + (0.64 - 1.95) * easeClose;
+
+        // Status LED turns red during braking, green upon complete dock
+        if (statusLedMat) {
+          if (elapsedDeploy >= 1.85) {
+            statusLedMat.color.set(0x10b981);
+            statusLedMat.emissive.set(0x10b981);
+          } else {
+            statusLedMat.color.set(0xef4444);
+            statusLedMat.emissive.set(0xef4444);
+          }
+        }
+      }
+
+      // Floor display counts up gradually and locks to Floor 44
+      if (elevatorGroup?.userData?.renderFloorDisplay) {
+        const floorNum = Math.min(44, Math.floor(40 + decelProgress * 4.2));
+        elevatorGroup.userData.renderFloorDisplay(floorNum);
+      }
+
+      // Elevator Arrival Chime & Heavy Docking Clamp Latch right as it comes to a complete halt
+      if (elapsedDeploy >= 1.85 && !state.dockingSoundPlayed) {
+        state.dockingSoundPlayed = true;
+        playElevatorDing();
+        playDockingSound();
+      }
+
+      // Camera gently centers on front
+      const targetCam = new THREE.Vector3(0, 1.30, 3.55);
+      const targetLook = new THREE.Vector3(0, 1.10, 0);
+      introCamPos.lerp(targetCam, Math.min(1.0, 5.0 * dt));
+      introCamLook.lerp(targetLook, Math.min(1.0, 6.0 * dt));
+    }
+
+    // PHASE 2: DOORS OPENING & DAYLIGHT REVEAL (2.0s - 3.2s)
+    else if (elapsedDeploy >= 2.0 && elapsedDeploy < 3.2) {
+      // Elevator is fully docked flush at Y = 0
+      if (elevatorGroup) {
+        elevatorGroup.position.y = 0;
+      }
+      if (selectedCharData && selectedCharData.rootGroup) {
+        selectedCharData.rootGroup.position.y = 0.02;
+      }
+
+      if (!state.doorSoundPlayed) {
+        state.doorSoundPlayed = true;
+        playDoorOpenSound();
+        if (devWorldGroup) devWorldGroup.visible = true;
+        if (elevatorGroup?.userData?.shaftStructureGroup) {
+          elevatorGroup.userData.shaftStructureGroup.visible = false;
+        }
+      }
+
+      // Doors slide apart smoothly to X = ±1.95
+      const openT = Math.min(1.0, (elapsedDeploy - 2.0) / 1.15);
+      const easeOpen = 1 - Math.pow(1 - openT, 3);
+      if (elevatorGroup && elevatorGroup.userData) {
+        const { doorLeft, doorRight } = elevatorGroup.userData;
+        if (doorLeft) doorLeft.position.x = -0.64 + (-1.95 - (-0.64)) * easeOpen;
+        if (doorRight) doorRight.position.x = 0.64 + (1.95 - 0.64) * easeOpen;
+      }
+
+      // Sky and sun daylight transition
+      const skyT = Math.min(1.0, (elapsedDeploy - 2.0) / 1.0);
+      scene.background.lerpColors(new THREE.Color(0x0c111a), state.isSunset ? bgSunset : bgDay, skyT);
+      scene.fog.color.copy(scene.background);
+      scene.fog.near = 2.0 + (10.0 - 2.0) * skyT;
+      scene.fog.far = 16.0 + (160.0 - 16.0) * skyT;
+      sunLight.intensity = 1.8 * skyT;
+
+      // Camera pulls back slightly to frame the opening doorway and outside vista
+      const targetCam = new THREE.Vector3(0, 1.40, 3.80);
+      const targetLook = new THREE.Vector3(0, 1.12, 0.6);
+      introCamPos.lerp(targetCam, Math.min(1.0, 4.5 * dt));
+      introCamLook.lerp(targetLook, Math.min(1.0, 5.5 * dt));
+    }
+
+    // PHASE 3: CHARACTER WALKING OUT OF CABIN (3.2s - 5.4s)
+    else if (elapsedDeploy >= 3.2 && elapsedDeploy < 5.4) {
+      if (elevatorGroup) {
+        elevatorGroup.position.y = 0;
+      }
+
+      // Start walk/run animation smoothly with NO WARP (eliminates T-pose / bind pose glitch)
+      if (!state.walkAnimStarted) {
+        state.walkAnimStarted = true;
+        if (selectedCharData) {
+          const runAct = selectedCharData.actions['run'];
+          const idleAct = selectedCharData.actions['idle'];
+          if (runAct) {
+            runAct.enabled = true;
+            runAct.setEffectiveTimeScale(selectedCharId === 'shiroko' ? 0.95 : 1.0);
+            runAct.setEffectiveWeight(1.0);
+            runAct.play();
+            if (idleAct && idleAct !== runAct) {
+              idleAct.crossFadeTo(runAct, 0.28, false); // warp = false prevents T-pose
+            }
+          }
+        }
+      }
+
+      // Walk progress along Z
+      const walkT = Math.min(1.0, (elapsedDeploy - 3.2) / 1.95);
+      const easeWalk = walkT < 0.5 ? 2 * walkT * walkT : -1 + (4 - 2 * walkT) * walkT;
+      const startX = selectedCharId === 'shiroko' ? -0.60 : 0.52;
+      const curX = startX * (1 - Math.min(1.0, walkT * 1.5));
+      const curZ = 3.2 * easeWalk;
+
+      // Vertical position steps smoothly from lift deck (+0.02) to arena ground (0.0) as they pass doorway threshold Z = 1.3
+      const charY = curZ < 1.3 ? 0.02 : Math.max(0, 0.02 * (1 - (curZ - 1.3) / 0.5));
+
+      if (selectedCharData && selectedCharData.rootGroup) {
+        selectedCharData.rootGroup.position.set(curX, charY, curZ);
+        selectedCharData.rootGroup.rotation.y = 0; // Walk forward (+Z)
+      }
+
+      // Synchronized footstep audio
+      state.stepTimer = (state.stepTimer || 0) + dt;
+      if (state.stepTimer > 0.35 && walkT < 0.92) {
+        playStepSound();
+        state.stepTimer = 0;
+      }
+
+      // Smooth cinematic camera orbit (sweeping from front to behind character)
+      const orbitT = Math.min(1.0, (elapsedDeploy - 3.2) / 2.15);
+      const smoothOrbit = orbitT * orbitT * (3 - 2 * orbitT);
+      const angle = smoothOrbit * Math.PI; // 0 (front) -> Math.PI (behind)
+      const focusH = char.cameraHeight || 0.85;
+      const camDist = char.cameraDist || 3.4;
+      const pitch = 0.28;
+
+      // Arc camera up and around to follow position matching gameplay TPS orbit formula
+      const camH = 1.35 * (1 - smoothOrbit) + (focusH + camDist * Math.sin(pitch)) * smoothOrbit;
+      const offsetX = Math.sin(angle) * (camDist * 0.65);
+      const offsetZ = Math.cos(angle) * (camDist * (Math.cos(pitch) * smoothOrbit + (1 - smoothOrbit)));
+
+      const targetCamPos = new THREE.Vector3(curX + offsetX, camH, curZ + offsetZ);
+      const targetCamLook = new THREE.Vector3(curX, focusH, curZ);
+
+      // Lerp dynamically, converging firmly as orbit completes
+      const camLerp = 8.0 + smoothOrbit * 12.0;
+      introCamPos.lerp(targetCamPos, Math.min(1.0, camLerp * dt));
+      introCamLook.lerp(targetCamLook, Math.min(1.0, (camLerp + 2.0) * dt));
+
+      // As character reaches destination, cross-fade back to idle with NO WARP (eliminates T-pose)
+      if (elapsedDeploy >= 5.0 && !state.idleCrossfaded) {
+        state.idleCrossfaded = true;
+        if (selectedCharData) {
+          const runAct = selectedCharData.actions['run'];
+          const idleAct = selectedCharData.actions['idle'];
+          if (idleAct) {
+            idleAct.enabled = true;
+            idleAct.setEffectiveWeight(1.0);
+            idleAct.play();
+            if (runAct && runAct !== idleAct) {
+              runAct.crossFadeTo(idleAct, 0.32, false); // warp = false prevents T-pose
+            }
+          }
+        }
+      }
+    }
+
+    // PHASE 4: GAMEPLAY READY
+    else {
+      finalizeGameplayTransition();
+      return;
+    }
+
+    camera.position.copy(introCamPos);
+    camera.lookAt(introCamLook);
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // NORMAL ELEVATOR ASCENT & OPERATOR SELECTION OVERVIEW
+  // --------------------------------------------------------------------------
   // Update elevator ascent particles & girders
   if (ascentEffectsGroup && ascentEffectsGroup.userData) {
     const { positions, speeds, girders, particles } = ascentEffectsGroup.userData;
@@ -2330,13 +2911,21 @@ function updateIntro(dt, elapsed) {
       const floorNum = 14 + Math.floor(elapsed * 1.5);
       elevatorGroup.userData.renderFloorDisplay(floorNum);
     }
-    // Subtle elevator floor vibration
-    elevatorGroup.position.y = Math.sin(elapsed * 24) * 0.002;
     // Subtle elevator platform vibration
     elevatorGroup.position.y = Math.sin(elapsed * 24) * 0.002;
   }
 
-  // Floating hover animation for "WHO ARE YOU?" text in 3D mid-air (Arknights Endfield Style)
+  // Keep characters standing flush on elevator deck (+0.02) during pre-selection
+  if (state.introState !== 'deploying') {
+    if (loadedCharacters['shiroko']?.rootGroup) {
+      loadedCharacters['shiroko'].rootGroup.position.y = (elevatorGroup ? elevatorGroup.position.y : 0) + 0.02;
+    }
+    if (loadedCharacters['drdoom']?.rootGroup) {
+      loadedCharacters['drdoom'].rootGroup.position.y = (elevatorGroup ? elevatorGroup.position.y : 0) + 0.02;
+    }
+  }
+
+  // Floating hover animation for "WHO ARE YOU?" text in 3D mid-air
   if (whoAreYouMesh) {
     whoAreYouMesh.position.y = 1.45 + Math.sin(elapsed * 1.5) * 0.02;
   }
@@ -2346,15 +2935,12 @@ function updateIntro(dt, elapsed) {
   let baseCamLook = new THREE.Vector3();
 
   if (state.introState === 'shiroko') {
-    // Samping serong depan (front-left diagonal) showing half body waist-up
     baseCamPos.set(-1.30, 1.05, 1.35);
     baseCamLook.set(-0.60, 0.90, 0);
   } else if (state.introState === 'drdoom') {
-    // Samping serong depan (front-right diagonal) showing half body waist-up
     baseCamPos.set(1.35, 1.40, 1.45);
     baseCamLook.set(0.52, 1.30, 0);
   } else {
-    // Overview: Front view showing full body of both Shiroko and Dr Doom side-by-side in Endfield lift
     baseCamPos.set(0, 1.30, 3.45);
     baseCamLook.set(0, 1.15, 0);
   }
@@ -2421,13 +3007,13 @@ async function initIntroCharacters() {
       loadModelPromise('drdoom')
     ]);
 
-    // Position Shiroko on Left (-0.60, 0, 0), standing side-by-side
-    shirokoData.rootGroup.position.set(-0.60, 0, 0);
+    // Position Shiroko on Left (-0.60, 0.02, 0), standing side-by-side
+    shirokoData.rootGroup.position.set(-0.60, 0.02, 0);
     shirokoData.rootGroup.rotation.y = 0;
     scene.add(shirokoData.rootGroup);
 
-    // Position Doctor Doom on Right (0.52, 0, 0), standing side-by-side
-    drDoomData.rootGroup.position.set(0.52, 0, 0);
+    // Position Doctor Doom on Right (0.52, 0.02, 0), standing side-by-side
+    drDoomData.rootGroup.position.set(0.52, 0.02, 0);
     drDoomData.rootGroup.rotation.y = 0;
     scene.add(drDoomData.rootGroup);
 
